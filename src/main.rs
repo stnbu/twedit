@@ -1,7 +1,9 @@
+use clipboard::ClipboardContext;
+use clipboard::ClipboardProvider;
 use eframe::egui;
+use eframe::egui::RichText;
 
-const DELIMITER: &str = "XXXXXXX";
-const N: usize = 3;
+const N: usize = 280; // Twitter's character limit
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
@@ -13,12 +15,16 @@ fn main() -> Result<(), eframe::Error> {
 
 struct App {
     input: String,
+    tweets: Vec<String>,
+    clicked_buttons: Vec<bool>,
 }
 
 impl Default for App {
     fn default() -> Self {
         Self {
             input: String::new(),
+            tweets: Vec::new(),
+            clicked_buttons: Vec::new(),
         }
     }
 }
@@ -26,45 +32,71 @@ impl Default for App {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            let result_text = construct_display_text(&self.input);
-
-            // Render the text area
+            // Main textarea for user input
             ui.add(egui::TextEdit::multiline(&mut self.input).desired_width(f32::INFINITY));
 
-            // Render the result below it
-            ui.group(|ui| {
-                ui.label("Result:");
-                ui.monospace(result_text);
+            // Update tweets list based on input
+            self.tweets = split_into_tweets(&self.input);
+            self.clicked_buttons.resize(self.tweets.len(), false);
+
+            // Side column for copy buttons
+            egui::SidePanel::right("side_panel").show(ctx, |ui| {
+                for (index, tweet) in self.tweets.iter().enumerate() {
+                    if ui
+                        .button(format!("{}/{}", index + 1, self.tweets.len()))
+                        .clicked()
+                    {
+                        copy_to_clipboard(tweet);
+                        self.clicked_buttons[index] = true;
+                    }
+                    //ui.label(RichText::new("Red text").color(Color32::RED));
+                    if self.clicked_buttons[index] {
+                        // For demonstration, change the background color to show it has been clicked.
+                        //ui.label("Copied").color(egui::Color32::from_rgb(0, 255, 0));
+                        //                            .set_bg_color(egui::Color32::from_black_alpha(192));
+                        //ui.label(RichText("Copied").color(egui::Color32::from_rgb(0, 255, 0)));
+                        ui.label(
+                            RichText::new("Copied").color(egui::Color32::from_black_alpha(192)),
+                        );
+                    }
+                }
+            });
+
+            // Preview area
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                for tweet in &self.tweets {
+                    ui.group(|ui| {
+                        ui.label(tweet);
+                        ui.horizontal(|ui| {
+                            ui.separator();
+                        });
+                    });
+                }
             });
         });
     }
 }
 
-/// Construct the display text with delimiters.
-fn construct_display_text(input: &str) -> String {
+/// Split the input text into tweets
+fn split_into_tweets(input: &str) -> Vec<String> {
     let chars: Vec<_> = input.chars().collect();
-    let mut result = String::new();
-    let mut count = 0;
-    let mut delimiter_count = 0;
+    let mut tweets = Vec::new();
 
-    for c in &chars {
-        if count == 0 {
-            result.push_str(&format_delimiter(delimiter_count, chars.len() / N));
-            delimiter_count += 1;
-        }
-        result.push(*c);
-        count += 1;
-        if count == N {
-            count = 0;
-        }
+    for chunk in chars.chunks(N) {
+        tweets.push(chunk.iter().collect());
     }
-    if count != 0 || chars.len() == 0 {
-        result.push_str(&format_delimiter(delimiter_count, chars.len() / N + 1));
-    }
-    result
+
+    // Add the tweet numbering
+    let tweets_len = tweets.len();
+    tweets.iter_mut().enumerate().for_each(|(i, tweet)| {
+        *tweet = format!("{}/{}> {}", i + 1, tweets_len, tweet);
+    });
+
+    tweets
 }
 
-/// Format the delimiter with the current and total count.
-fn format_delimiter(current: usize, total: usize) -> String {
-    format!("\n{:02}/{:02}>", current + 1, total)
+/// Copies the provided text to the system clipboard.
+fn copy_to_clipboard(text: &str) {
+    let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+    ctx.set_contents(text.to_owned()).unwrap();
 }
