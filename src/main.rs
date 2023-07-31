@@ -4,7 +4,11 @@ const DELIMITER: &str = "XXXXXXX";
 const N: usize = 3;
 
 fn main() -> Result<(), eframe::Error> {
-    eframe::run_native(App)
+    let options = eframe::NativeOptions {
+        initial_window_size: Some(egui::vec2(320.0, 240.0)),
+        ..Default::default()
+    };
+    eframe::run_native("twedit", options, Box::new(|_cc| Box::<App>::default()))
 }
 
 struct App {
@@ -25,11 +29,7 @@ impl eframe::App for App {
             let result_text = construct_display_text(&self.input);
 
             // Render the text area
-            ui.add(
-                egui::TextEdit::multiline(&mut self.input)
-                    .desired_width(f32::INFINITY)
-                    .desired_height(200.0),
-            );
+            ui.add(egui::TextEdit::multiline(&mut self.input).desired_width(f32::INFINITY));
 
             // Render the result below it
             ui.group(|ui| {
