@@ -42,22 +42,20 @@ impl eframe::App for App {
             // Side column for copy buttons
             egui::SidePanel::right("side_panel").show(ctx, |ui| {
                 for (index, tweet) in self.tweets.iter().enumerate() {
+                    let button_text_color = if self.clicked_buttons[index] {
+                        egui::Color32::from_rgb(0, 255, 0)
+                    } else {
+                        egui::Color32::BLACK
+                    };
                     if ui
-                        .button(format!("{}/{}", index + 1, self.tweets.len()))
+                        .button(
+                            RichText::new(format!("{}/{}", index + 1, self.tweets.len()))
+                                .color(button_text_color),
+                        )
                         .clicked()
                     {
                         copy_to_clipboard(tweet);
                         self.clicked_buttons[index] = true;
-                    }
-                    //ui.label(RichText::new("Red text").color(Color32::RED));
-                    if self.clicked_buttons[index] {
-                        // For demonstration, change the background color to show it has been clicked.
-                        //ui.label("Copied").color(egui::Color32::from_rgb(0, 255, 0));
-                        //                            .set_bg_color(egui::Color32::from_black_alpha(192));
-                        //ui.label(RichText("Copied").color(egui::Color32::from_rgb(0, 255, 0)));
-                        ui.label(
-                            RichText::new("Copied").color(egui::Color32::from_black_alpha(192)),
-                        );
                     }
                 }
             });
