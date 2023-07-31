@@ -33,7 +33,7 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             // Main textarea for user input
-            ui.add(egui::TextEdit::multiline(&mut self.input).desired_width(f32::INFINITY));
+            ui.add(egui::TextEdit::multiline(&mut self.input).desired_width(200.0));
 
             // Update tweets list based on input
             self.tweets = split_into_tweets(&self.input);
@@ -63,16 +63,23 @@ impl eframe::App for App {
             });
 
             // Preview area
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                for tweet in &self.tweets {
-                    ui.group(|ui| {
-                        ui.label(tweet);
-                        ui.horizontal(|ui| {
-                            ui.separator();
-                        });
-                    });
-                }
-            });
+            egui::ScrollArea::vertical()
+                .max_width(200.0)
+                .auto_shrink([false; 2])
+                .show(ui, |ui| {
+                    if self.tweets.len() > 1 {
+                        for tweet in &self.tweets {
+                            ui.group(|ui| {
+                                ui.label(tweet);
+                                ui.horizontal(|ui| {
+                                    ui.separator();
+                                });
+                            });
+                        }
+                    } else {
+                        ui.label("Preview:");
+                    }
+                });
         });
     }
 }
