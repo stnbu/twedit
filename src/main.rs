@@ -1,48 +1,107 @@
+use clipboard::ClipboardContext;
+use clipboard::ClipboardProvider;
 use eframe::egui;
+use eframe::egui::RichText;
+
+const N: usize = 280; // Twitter's character limit
 
 fn main() -> Result<(), eframe::Error> {
-    eframe::run::<MyApp>()
+    let options = eframe::NativeOptions {
+        initial_window_size: Some(egui::vec2(320.0, 240.0)),
+        ..Default::default()
+    };
+    eframe::run_native("twedit", options, Box::new(|_cc| Box::<App>::default()))
 }
 
-struct MyApp;
+struct App {
+    input: String,
+    tweets: Vec<String>,
+    clicked_buttons: Vec<bool>,
+}
 
-impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        const RIGHT_MARGIN_WIDTH: f32 = 100.0;
-        const TOP_MARGIN_HEIGHT: f32 = 50.0;
-        const TEXT_AREA_MIN_WIDTH: f32 = 50.0;
+impl Default for App {
+    fn default() -> Self {
+        Self {
+            input: String::new(),
+            tweets: Vec::new(),
+            clicked_buttons: Vec::new(),
+        }
+    }
+}
 
-        egui::TopPanel::top("top_margin")
-            .fixed_height(TOP_MARGIN_HEIGHT)
-            .show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label("Top Margin Content Here");
-                    ui.add_space(RIGHT_MARGIN_WIDTH);
-                });
-            });
-
-        egui::SidePanel::right("right_margin")
-            .fixed_width(RIGHT_MARGIN_WIDTH)
-            .show(ctx, |ui| {
-                ui.vertical(|ui| {
-                    ui.add_space(TOP_MARGIN_HEIGHT);
-                    ui.label("Right Margin Content Here");
-                });
-            });
-
+impl eframe::App for App {
+    fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            let (_, main_area) = ui.split_vertically(ui.available_size().y - TOP_MARGIN_HEIGHT);
-            main_area.split(|ui| {
-                ui.group(|ui| {
-                    ui.set_min_width(TEXT_AREA_MIN_WIDTH);
-                    ui.label("Widget W1");
-                });
+            // Main textarea for user input
+            ui.add(egui::TextEdit::multiline(&mut self.input).desired_width(200.0));
 
-                ui.group(|ui| {
-                    ui.set_min_width(TEXT_AREA_MIN_WIDTH);
-                    ui.label("Widget W2");
-                });
+            // Update tweets list based on input
+            self.tweets = split_into_tweets(&self.input);
+            self.clicked_buttons.resize(self.tweets.len(), false);
+
+            // Side column for copy buttons
+            egui::SidePanel::right("side_panel").show(ctx, |ui| {
+                for (index, tweet) in self.tweets.iter().enumerate() {
+                    let button_text_color = if self.clicked_buttons[index] {
+                        egui::Color32::from_rgb(0, 255, 0)
+                    } else {
+                        egui::Color32::BLACK
+                    };
+                    if ui
+                        .button(
+                            RichText::new(format!("{}/{}", index + 1, self.tweets.len()))
+                                .color(button_text_color),
+                        )
+                        .clicked()
+                    {
+                        copy_to_clipboard(tweet);
+                        self.clicked_buttons[index] = true;
+                    }
+                }
             });
+
+            // Preview area
+            egui::ScrollArea::vertical()
+                .max_width(200.0)
+                .auto_shrink([false; 2])
+                .show(ui, |ui| {
+                    if self.tweets.len() > 1 {
+                        for tweet in &self.tweets {
+                            ui.group(|ui| {
+                                ui.label(tweet);
+                                ui.horizontal(|ui| {
+                                    ui.separator();
+                                });
+                            });
+                        }
+                    } else {
+                        ui.label("Preview:");
+                    }
+                });
         });
     }
+}
+
+/// Split the input text into tweets
+fn split_into_tweets(input: &str) -> Vec<String> {
+    let chars: Vec<_> = input.chars().collect();
+    let mut tweets = Vec::new();
+
+    for chunk in chars.chunks(N) {
+        tweets.push(chunk.iter().collect());
+    }
+
+    // Add the tweet numbering
+    let tweets_len = tweets.len();
+    tweets.iter_mut().enumerate().for_each(|(i, tweet)| {
+        *tweet = format!("{}/{}> {}", i + 1, tweets_len, tweet);
+    });
+
+    tweets
+}
+
+/// Copies the provided text to the system clipboard.
+fn copy_to_clipboard(text: &str) {
+    let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+    ctx.set_contents(text.to_owned()).unwrap();
 }
